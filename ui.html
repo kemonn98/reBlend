@@ -1,17 +1,39 @@
-<h2>Rectangle Creator</h2>
-<p>Count: <input id="count" value="5"></p>
-<button id="create">Create</button>
-<button id="cancel">Cancel</button>
+<div>
+  <label for="gradientStyle">Select Gradient Style:</label>
+  <select id="gradientStyle">
+      <option value="Bright">Bright</option>
+      <option value="Pop">Pop</option>
+      <option value="Funk">Funk</option>
+      <option value="Light">Light</option>
+      <option value="Dark">Dark</option>
+      <option value="Saturated">Saturated</option>
+  </select>
+</div>
+<button id="generateGradient">Generate</button>
+<button id="applyGradient">Apply</button>
+
+<!-- Gradient Preview Area -->
+<div id="gradientPreview" style="width: 100%; height: 100px; margin-top: 10px; border: 1px solid #ccc;"></div>
+
+<script src="ui.js"></script>
+
 <script>
+document.getElementById('generateGradient').onclick = () => {
+    const style = document.getElementById('gradientStyle').value;
+    parent.postMessage({ pluginMessage: { type: 'generate-gradient', style } }, '*');
+};
 
-document.getElementById('create').onclick = () => {
-  const textbox = document.getElementById('count');
-  const count = parseInt(textbox.value, 10);
-  parent.postMessage({ pluginMessage: { type: 'create-rectangles', count } }, '*')
-}
+document.getElementById('applyGradient').onclick = () => {
+    parent.postMessage({ pluginMessage: { type: 'apply-gradient' } }, '*');
+};
 
-document.getElementById('cancel').onclick = () => {
-  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*')
-}
+// Listen for messages from the plugin code
+window.onmessage = (event) => {
+    const message = event.data.pluginMessage;
 
+    if (message.type === 'update-gradient-preview') {
+        const gradientPreview = document.getElementById('gradientPreview');
+        gradientPreview.style.background = `linear-gradient(to right, ${message.colors[0]}, ${message.colors[1]})`;
+    }
+};
 </script>

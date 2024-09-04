@@ -1,34 +1,111 @@
-// This plugin will open a window to prompt the user to enter a number, and
-// it will then create that many rectangles on the screen.
-
-// This file holds the main code for plugins. Code in this file has access to
-// the *figma document* via the figma global object.
-// You can access browser APIs in the <script> tag inside "ui.html" which has a
-// full browser environment (See https://www.figma.com/plugin-docs/how-plugins-run).
-
-// This shows the HTML page in "ui.html".
 figma.showUI(__html__);
 
-// Calls to "parent.postMessage" from within the HTML page will trigger this
-// callback. The callback will be passed the "pluginMessage" property of the
-// posted message.
-figma.ui.onmessage =  (msg: {type: string, count: number}) => {
-  // One way of distinguishing between different types of messages sent from
-  // your HTML page is to use an object with a "type" property like this.
-  if (msg.type === 'create-rectangles') {
-    const nodes: SceneNode[] = [];
-    for (let i = 0; i < msg.count; i++) {
-      const rect = figma.createRectangle();
-      rect.x = i * 150;
-      rect.fills = [{type: 'SOLID', color: {r: 1, g: 0.5, b: 0}}];
-      figma.currentPage.appendChild(rect);
-      nodes.push(rect);
-    }
-    figma.currentPage.selection = nodes;
-    figma.viewport.scrollAndZoomIntoView(nodes);
-  }
+let currentGradient: RGBA[] = [];
 
-  // Make sure to close the plugin when you're done. Otherwise the plugin will
-  // keep running, which shows the cancel button at the bottom of the screen.
-  figma.closePlugin();
+figma.ui.onmessage = msg => {
+    if (msg.type === 'generate-gradient') {
+        const style = msg.style;
+        currentGradient = generateRandomGradient(style);
+        
+        // Convert RGBA to CSS-friendly color strings
+        const color1 = rgbaToCss(currentGradient[0]);
+        const color2 = rgbaToCss(currentGradient[1]);
+
+        // Send colors to the UI to update the preview
+        figma.ui.postMessage({
+            type: 'update-gradient-preview',
+            colors: [color1, color2]
+        });
+
+        figma.notify('Gradient generated! Click "Apply" to use it.');
+    }
+
+    if (msg.type === 'apply-gradient') {
+        const selection = figma.currentPage.selection;
+
+        if (selection.length > 0) {
+            const selectedLayer = selection[0];
+
+            if ("fills" in selectedLayer && currentGradient.length > 0) {
+                selectedLayer.fills = [{
+                    type: 'GRADIENT_LINEAR',
+                    gradientStops: [
+                        { color: currentGradient[0], position: 0, boundVariables: {} },
+                        { color: currentGradient[1], position: 1, boundVariables: {} }
+                    ],
+                    gradientTransform: [
+                        [1, 0, 0],
+                        [0, 1, 0]
+                    ]
+                }];
+
+                figma.notify('Gradient applied!');
+            } else {
+                figma.notify('Please generate a gradient first or select a valid layer.');
+            }
+        } else {
+            figma.notify('Please select a layer to apply the gradient.');
+        }
+    }
 };
+
+// Function to generate a random gradient based on the selected style
+function generateRandomGradient(style: string): Array<RGBA> {
+    let colors: Array<RGBA> = [];
+
+    switch (style) {
+        case 'Bright':
+            colors = [
+                randomColor({ r: 0.7, g: 0.3, b: 0.3 }),
+                randomColor({ r: 0.7, g: 0.7, b: 0.3 })
+            ];
+            break;
+        case 'Pop':
+            colors = [
+                randomColor({ r: 0.3, g: 0.3, b: 0.7 }),
+                randomColor({ r: 0.7, g: 0.3, b: 0.7 })
+            ];
+            break;
+        case 'Funk':
+            colors = [
+                randomColor({ r: 0.3, g: 0.7, b: 0.3 }),
+                randomColor({ r: 0.7, g: 0.7, b: 0.3 })
+            ];
+            break;
+        case 'Light':
+            colors = [
+                randomColor({ r: 0.9, g: 0.9, b: 0.9 }),
+                randomColor({ r: 0.7, g: 0.7, b: 0.7 })
+            ];
+            break;
+        case 'Dark':
+            colors = [
+                randomColor({ r: 0.2, g: 0.2, b: 0.2 }),
+                randomColor({ r: 0.4, g: 0.4, b: 0.4 })
+            ];
+            break;
+        case 'Saturated':
+            colors = [
+                randomColor({ r: 1, g: 0.2, b: 0.2 }),
+                randomColor({ r: 0.2, g: 1, b: 0.2 })
+            ];
+            break;
+    }
+
+    return colors;
+}
+
+// Helper function to generate a random color with a base RGB value
+function randomColor(base: { r: number, g: number, b: number }): RGBA {
+    return {
+        r: Math.min(1, base.r + Math.random() * 0.3),
+        g: Math.min(1, base.g + Math.random() * 0.3),
+        b: Math.min(1, base.b + Math.random() * 0.3),
+        a: 1
+    };
+}
+
+// Helper function to convert RGBA to CSS color string
+function rgbaToCss(color: RGBA): string {
+    return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${color.a})`;
+}
