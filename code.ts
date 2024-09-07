@@ -1,6 +1,18 @@
-figma.showUI(__html__);
+figma.showUI(__html__, { width: 320, height: 270 });
 
 let currentGradient: RGBA[] = [];
+
+let notificationTimeout: number | null = null;
+
+function debouncedNotify(message: string) {
+    if (notificationTimeout) {
+        clearTimeout(notificationTimeout);
+    }
+    notificationTimeout = setTimeout(() => {
+        figma.notify(message);
+        notificationTimeout = null;
+    }, 300); // 300ms debounce time
+}
 
 figma.ui.onmessage = msg => {
     if (msg.type === 'generate-gradient') {
@@ -16,8 +28,6 @@ figma.ui.onmessage = msg => {
             type: 'update-gradient-preview',
             colors: [color1, color2]
         });
-
-        figma.notify('Gradient generated! Click "Apply" to use it.');
     }
 
     if (msg.type === 'apply-gradient') {
@@ -38,14 +48,8 @@ figma.ui.onmessage = msg => {
                         [0, 1, 0]
                     ]
                 }];
-
-                figma.notify('Gradient applied!');
-            } else {
-                figma.notify('Please generate a gradient first or select a valid layer.');
-            }
-        } else {
-            figma.notify('Please select a layer to apply the gradient.');
-        }
+            } 
+        } 
     }
 };
 
