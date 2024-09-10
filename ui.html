@@ -10,7 +10,6 @@
     <option value="Muted">Muted</option>
     <option value="Grayscale">Grayscale</option>
   </select>
-
 </div>
 <button id="generateGradient">Generate</button>
 <button id="applyGradient">Apply</button>
@@ -18,25 +17,26 @@
 <!-- Gradient Preview Area -->
 <div id="gradientPreview" style="width: 100%; height: 200px; margin-top: 10px; border: 1px solid #ccc;"></div>
 
-<script src="ui.js"></script>
-
 <script>
-document.getElementById('generateGradient').onclick = () => {
+  document.getElementById('generateGradient').onclick = () => {
     const style = document.getElementById('gradientStyle').value;
     parent.postMessage({ pluginMessage: { type: 'generate-gradient', style } }, '*');
-};
+  };
 
-document.getElementById('applyGradient').onclick = () => {
+  // Update the applyGradient button click handler
+  document.getElementById('applyGradient').onclick = () => {
     parent.postMessage({ pluginMessage: { type: 'apply-gradient' } }, '*');
-};
+  };
 
-// Listen for messages from the plugin code
-window.onmessage = (event) => {
+  // Listen for messages from the plugin code
+  window.onmessage = (event) => {
     const message = event.data.pluginMessage;
 
     if (message.type === 'update-gradient-preview') {
         const gradientPreview = document.getElementById('gradientPreview');
-        gradientPreview.style.background = `linear-gradient(to right, ${message.colors[0]}, ${message.colors[1]})`;
+        
+        // Update the gradient preview without direction
+        gradientPreview.style.background = `linear-gradient(${message.colors[0]}, ${message.colors[1]})`;
     }
-};
+  };
 </script>

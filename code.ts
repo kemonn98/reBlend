@@ -1,5 +1,4 @@
 figma.showUI(__html__, { width: 320, height: 270 });
-
 let currentGradient: RGBA[] = [];
 
 let notificationTimeout: number | null = null;
@@ -17,7 +16,8 @@ function debouncedNotify(message: string) {
 figma.ui.onmessage = msg => {
     if (msg.type === 'generate-gradient') {
         const style = msg.style;
-        currentGradient = generateRandomGradient(style);
+        const { colors } = generateGradient(style); // Generate colors without direction
+        currentGradient = colors;
 
         // Convert RGBA to CSS-friendly color strings
         const color1 = rgbaToCss(currentGradient[0]);
@@ -26,19 +26,20 @@ figma.ui.onmessage = msg => {
         // Send colors to the UI to update the preview
         figma.ui.postMessage({
             type: 'update-gradient-preview',
-            colors: [color1, color2]
+            colors: [color1, color2],
+            // Adjust the transform for a 90-degree rotation to the left
+            transform: getGradientTransform(90) // Pass 90 degrees for rotation
         });
     }
 
     if (msg.type === 'apply-gradient') {
         const selection = figma.currentPage.selection;
-
+    
         if (selection.length > 0 && currentGradient.length > 0) {
             // Loop through all selected layers
             for (const selectedLayer of selection) {
                 if ("fills" in selectedLayer && Array.isArray(selectedLayer.fills)) {
                     let gradientFill = selectedLayer.fills.find((fill: Paint) => fill.type === 'GRADIENT_LINEAR') as GradientPaint | undefined;
-                    
                     if (gradientFill) {
                         // Modify existing gradient fill
                         selectedLayer.fills = selectedLayer.fills.map(fill => {
@@ -46,9 +47,10 @@ figma.ui.onmessage = msg => {
                                 return {
                                     ...fill,
                                     gradientStops: [
-                                        { color: currentGradient[0], position: 0, boundVariables: {} },
-                                        { color: currentGradient[1], position: 1, boundVariables: {} }
-                                    ]
+                                        { color: currentGradient[0], position: 0, boundVariables: {} }, // Start color
+                                        { color: currentGradient[1], position: 1, boundVariables: {} }  // End color
+                                    ],
+                                    gradientTransform: getGradientTransform(0, 0) // Use default direction
                                 };
                             }
                             return fill;
@@ -58,13 +60,10 @@ figma.ui.onmessage = msg => {
                         const newGradientFill: GradientPaint = {
                             type: 'GRADIENT_LINEAR',
                             gradientStops: [
-                                { color: currentGradient[0], position: 0, boundVariables: {} },
-                                { color: currentGradient[1], position: 1, boundVariables: {} }
+                                { color: currentGradient[0], position: 0, boundVariables: {} }, // Start color
+                                { color: currentGradient[1], position: 1, boundVariables: {} }  // End color
                             ],
-                            gradientTransform: [
-                                [1, 0, 0],
-                                [0, 1, 0]
-                            ]
+                            gradientTransform: getGradientTransform(0, 0) // Use default direction
                         };
                         selectedLayer.fills = [newGradientFill];
                     }
@@ -76,9 +75,8 @@ figma.ui.onmessage = msg => {
     }
 };
 
-
-// Function to generate a random gradient based on the selected style
-function generateRandomGradient(style: string): Array<RGBA> {
+// Function to generate a gradient based on the selected style
+function generateGradient(style: string): { colors: Array<RGBA> } {
     let colors: Array<RGBA> = [];
 
     switch (style) {
@@ -114,21 +112,21 @@ function generateRandomGradient(style: string): Array<RGBA> {
         case 'Complementary':
             const baseColor1 = randomColor({ r: Math.random(), g: Math.random(), b: Math.random() });
             const complementaryColor1 = randomColor({
-                r: 1 - baseColor1.r, 
-                g: 1 - baseColor1.g, 
+                r: 1 - baseColor1.r,
+                g: 1 - baseColor1.g,
                 b: 1 - baseColor1.b
             });
-            
+
             const baseColor2 = randomColor({ r: Math.random(), g: Math.random(), b: Math.random() });
             const complementaryColor2 = randomColor({
-                r: 1 - baseColor2.r, 
-                g: 1 - baseColor2.g, 
+                r: 1 - baseColor2.r,
+                g: 1 - baseColor2.g,
                 b: 1 - baseColor2.b
             });
-        
+
             // Randomly mix two base colors and their complementary counterparts
             colors = [
-                baseColor1, 
+                baseColor1,
                 complementaryColor1,
                 baseColor2,
                 complementaryColor2
@@ -159,7 +157,7 @@ function generateRandomGradient(style: string): Array<RGBA> {
             break;
     }
 
-    return colors;
+    return { colors };
 }
 
 // Helper function to generate a random color with a base RGB value
@@ -175,4 +173,16 @@ function randomColor(base: { r: number, g: number, b: number }): RGBA {
 // Helper function to convert RGBA to CSS color string
 function rgbaToCss(color: RGBA): string {
     return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${color.a})`;
+}
+
+// Helper function to get the gradient transform based on translation
+function getGradientTransform(direction: number, translateX: number = 0, translateY: number = 0): Transform {
+    const radians = (direction + 90) * (Math.PI / 180); // Adjust for Figma's interpretation
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+
+    return [
+        [cos, sin, 0],   // First row with translation in X
+        [-sin, cos, 1]   // Second row with translation in Y
+    ] as Transform; // Explicitly assert the type
 }
